@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>¿Se arma el plan? | Clima para tus planes en Colombia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-sky="sol">
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+
+  <header class="top">
+    <div class="brand"><span class="logo" aria-hidden="true">🌤️</span><span>¿Se arma el plan?</span></div>
+    <nav id="menu" class="tabs" aria-label="Secciones">
+      <button class="tab active" data-view="inicio"><span aria-hidden="true">🏠</span><b>Inicio</b></button>
+      <button class="tab" data-view="consultar"><span aria-hidden="true">🔍</span><b>Consultar plan</b></button>
+      <button class="tab" data-view="historial"><span aria-hidden="true">🕘</span><b>Historial</b></button>
+      <button class="tab" data-view="favoritos"><span aria-hidden="true">⭐</span><b>Favoritos</b></button>
+      <button class="tab" data-view="acerca"><span aria-hidden="true">ℹ️</span><b>Acerca de</b></button>
+    </nav>
+  </header>
+
+  <main id="contenido">
+    <!-- INICIO -->
+    <section id="view-inicio" class="view active">
+      <div class="layout">
+        <form id="form" class="panel config" novalidate>
+          <div>
+            <h1>¿Se arma el plan?</h1>
+            <p class="muted">Elige y te decimos si el clima acompaña.</p>
+          </div>
+          <fieldset>
+            <legend>📍 Ciudad</legend>
+            <div class="chips" id="chipsCiudad"></div>
+          </fieldset>
+          <fieldset>
+            <legend>🎯 Plan</legend>
+            <div class="chips plans" id="chipsPlan"></div>
+          </fieldset>
+          <fieldset>
+            <legend>📅 Periodo</legend>
+            <div class="segmented">
+              <label class="seg"><input type="radio" name="periodo" value="hoy"><span>Hoy</span></label>
+              <label class="seg"><input type="radio" name="periodo" value="manana"><span>Mañana</span></label>
+              <label class="seg"><input type="radio" name="periodo" value="3" checked><span>3 días</span></label>
+            </div>
+          </fieldset>
+          <button type="submit" class="btn-primary" id="btnConsultar">Actualizar condiciones</button>
+        </form>
+
+        <div id="resultados" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- CONSULTAR PLAN -->
+    <section id="view-consultar" class="view">
+      <h1 class="view-title">Consultar plan</h1>
+      <div id="detalle" aria-live="polite">
+        <div class="panel empty"><p>Aún no has consultado nada. Hazlo desde Inicio y aquí verás la comparación de planes.</p></div>
+      </div>
+    </section>
+
+    <!-- HISTORIAL -->
+    <section id="view-historial" class="view">
+      <div class="view-head">
+        <h1 class="view-title">Historial</h1>
+        <button class="btn-ghost" id="btnBorrarHistorial" type="button">Borrar historial</button>
+      </div>
+      <div id="listaHistorial"></div>
+    </section>
+
+    <!-- FAVORITOS -->
+    <section id="view-favoritos" class="view">
+      <h1 class="view-title">Favoritos</h1>
+      <div id="listaFavoritos"></div>
+    </section>
+
+    <!-- ACERCA DE -->
+    <section id="view-acerca" class="view">
+      <h1 class="view-title">Acerca de</h1>
+      <div class="panel about">
+        <p>¿Se arma el plan? te dice si el clima acompaña el plan que tienes en mente, en siete ciudades de Colombia.</p>
+        <h2>Cómo funciona</h2>
+        <ul>
+          <li><strong>API:</strong> consulta el pronóstico por horas en Open-Meteo, un servicio meteorológico gratuito.</li>
+          <li><strong>HTTP y JSON:</strong> JavaScript pide los datos con <code>fetch</code> y recibe la respuesta en JSON.</li>
+          <li><strong>Lógica:</strong> compara temperatura, lluvia, UV, viento y nubosidad hora por hora y puntúa cada plan de 0 a 100.</li>
+          <li><strong>Horarios:</strong> cada plan tiene sus horas habituales (por ejemplo, el cine después de las 4 p. m.).</li>
+          <li><strong>Fondo:</strong> el color de la página cambia según haga sol, esté nublado o vaya a llover.</li>
+        </ul>
+        <p class="muted">Ciudades: Barrancabermeja, Bucaramanga, Bogotá, Medellín, Pereira, Cartagena y Santa Marta. Hora de Colombia (UTC-5).</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
