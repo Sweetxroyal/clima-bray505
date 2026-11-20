@@ -17,6 +17,7 @@
 
 body { --sky1: #ffe9cf; --sky2: #e6dcff; --sky3: #cfe0ff; --sky-ico: "☀️"; }
 body[data-sky="lluvia"] { --sky1: #bcd0f3; --sky2: #c8c2ee; --sky3: #dce4f5; --sky-ico: "🌧️"; }
+body[data-sky="calor"] { --sky1: #ffd2a6; --sky2: #ffc2b0; --sky3: #ffe6bf; --sky-ico: "🔥"; }
 body[data-sky="nublado"] { --sky1: #e4e2f1; --sky2: #d9d4ee; --sky3: #e8eaf6; --sky-ico: "☁️"; }
 
 * { box-sizing: border-box; margin: 0; }
@@ -139,9 +140,32 @@ legend { font-size: 0.82rem; font-weight: 700; margin-bottom: 8px; color: var(--
 .tile strong { font-size: 1.15rem; font-weight: 800; line-height: 1.15; }
 .tile em { display: block; font-style: normal; color: var(--muted); font-size: 0.7rem; }
 
+/* Alertas del clima y planes recomendados */
+.alerts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+.alert { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: var(--soft); border-left: 5px solid var(--violet); }
+.alert .a-ico { font-size: 1.6rem; line-height: 1; }
+.alert strong { font-size: 0.92rem; }
+.alert p { font-size: 0.8rem; color: #3d3a6e; margin-top: 2px; }
+.alert.hot { background: #ffe3d6; border-color: #f0662a; }
+.alert.rain { background: #dbe8ff; border-color: var(--blue); }
+.alert.uv { background: #fff0c9; border-color: var(--maybe); }
+.alert.wind { background: #e7e1ff; border-color: var(--violet); }
+.alert.cold { background: #dff3ff; border-color: #38a3d8; }
+.alert.calm { background: #d3f5e9; border-color: var(--good); }
+.rec-title { margin-top: 14px; }
+.recs { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+.rec { display: flex; align-items: center; gap: 10px; text-align: left; font: inherit; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 12px; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+.rec:hover { transform: translateY(-2px); border-color: var(--violet); }
+.rec.current { border-color: var(--violet); background: var(--soft); }
+.rec-ico { font-size: 1.8rem; }
+.rec-text { flex: 1; display: grid; min-width: 0; }
+.rec-text b { font-size: 0.92rem; }
+.rec-text small { color: var(--muted); font-size: 0.78rem; line-height: 1.25; }
+.rec-text em { font-style: normal; font-size: 0.78rem; color: var(--violet-dark); font-weight: 600; }
+
 /* Franja de calor */
 .day-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.day-tab { font: inherit; font-size: 0.8rem; font-weight: 600; text-transform: capitalize; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.day-tab { font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
 .day-tab i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
 .day-tab.good i { background: var(--good); } .day-tab.maybe i { background: var(--maybe); } .day-tab.bad i { background: var(--bad); }
 .day-tab[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }

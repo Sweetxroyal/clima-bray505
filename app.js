@@ -79,6 +79,22 @@ const VERDICTS = {
   bad: 'Mejor cambia de plan',
   none: 'Ya no quedan horarios'
 };
+/*
+  Qué planes encajan con cada condición del clima y por qué.
+  Condiciones: calor, lluvia, fresco, sol, nublado.
+  Para añadir un plan nuevo, agrégalo también aquí.
+*/
+const WHY = {
+  cafe: { lluvia: 'Un café mientras cae la lluvia', nublado: 'Día nubladito, ideal para un café', fresco: 'Un café caliente con el fresquito' },
+  cine: { lluvia: 'Refugio perfecto si llueve', calor: 'Con aire acondicionado escapas del calor' },
+  correr: { fresco: 'Fresco y buen aire para trotar', nublado: 'Sin sol fuerte, buen día para correr', sol: 'Corre temprano y aprovecha el sol' },
+  piscina: { calor: 'Para refrescarte del calor', sol: 'Día de sol y agua' },
+  futbol: { fresco: 'Buen clima para jugar', nublado: 'Sin sol fuerte para el partido', sol: 'Juega temprano o al atardecer' },
+  casa: { lluvia: 'Mantita, snacks y película', calor: 'Fresquito en casa, sin sufrir el calor', fresco: 'Plan abrigado en casa' },
+  comer: { lluvia: 'Comida rica mientras pasa la lluvia', calor: 'Un lugar con aire y algo frío', fresco: 'Buen día para salir a comer', sol: 'Terraza y buena comida', nublado: 'Plan cómodo para cualquier cielo' },
+  playa: { calor: 'El mar alivia el calor', sol: 'Día de sol para el mar' }
+};
+
 const LEVEL_TEXT = { good: 'Muy recomendado', maybe: 'Con precaución', bad: 'No recomendado', none: 'Sin horarios' };
 
 /* =========================================================
@@ -104,7 +120,8 @@ function fmtHour(h) {
 }
 
 function fmtDate(date) {
-  return new Date(date + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' });
+  const t = new Date(date + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 const levelOf = score => score == null ? 'none' : score >= 70 ? 'good' : score >= 45 ? 'maybe' : 'bad';
@@ -194,7 +211,7 @@ function evaluate(hours, act, periodKey) {
   const dates = [...new Set(hours.map(h => h.date))];
   const now = nowBogota();
 
-  const days = PERIODS[periodKey].days.map(i => dates[i]).filter(Boolean).map(date => {
+  const days = (Array.isArray(periodKey) ? periodKey : PERIODS[periodKey].days).map(i => dates[i]).filter(Boolean).map(date => {
     const all = hours.filter(h => h.date === date);
     let hs = all.filter(h => inWindow(h.hour, act));
     if (date === now.date) hs = hs.filter(h => h.hour > now.hour);
@@ -230,10 +247,47 @@ function rankActivities(hours, city, periodKey) {
     .sort((x, y) => (y.score ?? -1) - (x.score ?? -1));
 }
 
+/* Resumen del clima general del día (6 a. m. a 9 p. m.), sin depender del plan */
+function daySummary(day) {
+  let hs = day.all.filter(h => h.hour >= 6 && h.hour <= 21 && h.hour > day.past);
+  if (!hs.length) hs = day.all.filter(h => h.hour >= 6 && h.hour <= 21);
+  const top = (key) => hs.reduce((a, b) => (b[key] > a[key] ? b : a), hs[0]);
+  return {
+    maxT: Math.round(top('temp').temp), maxTHour: top('temp').hour,
+    minT: Math.round(Math.min(...hs.map(h => h.temp))),
+    maxRain: top('rain').rain, rainHour: top('rain').hour,
+    maxUv: Math.round(top('uv').uv), maxWind: Math.round(top('wind').wind),
+    cloud: Math.round(hs.reduce((a, h) => a + h.cloud, 0) / hs.length)
+  };
+}
+
+function conditionsOf(m) {
+  const c = [];
+  if (m.maxT >= 30) c.push('calor');
+  if (m.maxRain >= 40) c.push('lluvia');
+  if (m.maxT < 22) c.push('fresco');
+  if (m.maxT < 30 && m.cloud < 40 && m.maxRain < 30) c.push('sol');
+  if (m.cloud >= 60 && m.maxRain < 40) c.push('nublado');
+  return c;
+}
+
+function alertsOf(m) {
+  const a = [];
+  if (m.maxT >= 34) a.push({ type: 'hot', icon: '🔥', title: 'Demasiado calor', text: `Llega a ${m.maxT} °C hacia las ${fmtHour(m.maxTHour)} Evita el sol fuerte entre 11 a. m. y 3 p. m. e hidrátate.` });
+  else if (m.maxT >= 30) a.push({ type: 'hot', icon: '🌡️', title: 'Hace calor', text: `Llega a ${m.maxT} °C hacia las ${fmtHour(m.maxTHour)} Busca sombra y toma agua.` });
+  if (m.maxRain >= 60) a.push({ type: 'rain', icon: '🌧️', title: 'Quiere llover', text: `Probabilidad de ${m.maxRain} % hacia las ${fmtHour(m.rainHour)} Lleva paraguas o prefiere planes bajo techo.` });
+  else if (m.maxRain >= 30) a.push({ type: 'rain', icon: '☁️', title: 'Puede llover', text: `Probabilidad de ${m.maxRain} % hacia las ${fmtHour(m.rainHour)} Ten un plan B a la mano.` });
+  if (m.maxUv >= 8) a.push({ type: 'uv', icon: '😎', title: 'UV muy alto', text: `Índice de ${m.maxUv}. Usa bloqueador y evita el mediodía.` });
+  else if (m.maxUv >= 6) a.push({ type: 'uv', icon: '🕶️', title: 'UV alto', text: `Índice de ${m.maxUv}. Usa bloqueador solar.` });
+  if (m.maxWind >= 30) a.push({ type: 'wind', icon: '💨', title: 'Viento fuerte', text: `Hasta ${m.maxWind} km/h. Cuidado en espacios abiertos.` });
+  if (m.maxT <= 15) a.push({ type: 'cold', icon: '🧥', title: 'Hace frío', text: `Mínima de ${m.minT} °C. Sal abrigado.` });
+  return a;
+}
+
 function skyOf(m) {
-  if (!m) return 'sol';
-  if (m.rain >= 50) return 'lluvia';
-  if (m.cloud >= 65 || m.rain >= 30) return 'nublado';
+  if (m.maxRain >= 50) return 'lluvia';
+  if (m.maxT >= 33) return 'calor';
+  if (m.cloud >= 65 || m.maxRain >= 30) return 'nublado';
   return 'sol';
 }
 
@@ -304,8 +358,6 @@ function renderResults(q, hours, opts = {}) {
   state.dayIdx = Math.max(0, r.days.findIndex(d => d === r.bestDay));
   state.hour = r.bestDay && r.bestDay.best ? r.bestDay.best.start : null;
 
-  document.body.dataset.sky = skyOf(r.metrics);
-
   let body;
   if (!r.metrics) {
     body = 'Hoy ya pasaron los horarios habituales de este plan. Prueba con “Mañana” o con otro plan.';
@@ -324,12 +376,6 @@ function renderResults(q, hours, opts = {}) {
         ${tile('💨', 'Viento', `${r.metrics.wind} km/h`, 'promedio')}
       </div>` : '';
 
-  const alts = ranking.filter(x => x.act.id !== act.id && x.score != null && x.score >= 45).slice(0, 4);
-  const altsHtml = alts.length
-    ? `<h2>${r.level === 'good' ? 'Otros planes que también funcionan' : 'Planes que sí se arman'}</h2>
-       <div class="alts">${alts.map(x => `<button class="alt" type="button" data-alt="${x.act.id}">${x.act.icon} ${x.act.label}</button>`).join('')}</div>`
-    : '';
-
   $('#resultados').innerHTML = `
     <div class="banner">
       <div>
@@ -346,12 +392,58 @@ function renderResults(q, hours, opts = {}) {
       </div>
       ${gauge(r.score, r.level)}
     </div>
+    <div class="panel" id="climaPanel"></div>
     ${tiles}
-    <div class="panel" id="heatPanel"></div>
-    ${altsHtml ? `<div class="panel">${altsHtml}</div>` : ''}`;
+    <div class="panel" id="heatPanel"></div>`;
 
+  renderClima();
   renderHeat();
   renderDetail();
+}
+
+/* Alertas del clima y planes que se adaptan a él */
+function renderClima() {
+  const panel = $('#climaPanel');
+  if (!panel || !state.last) return;
+  const { q, r, hours } = state.last;
+  const day = r.days[state.dayIdx];
+  if (!day) { panel.innerHTML = ''; return; }
+
+  const m = daySummary(day);
+  const conds = conditionsOf(m);
+  document.body.dataset.sky = skyOf(m);
+
+  const alerts = alertsOf(m);
+  const alertsHtml = alerts.length
+    ? alerts.map(a => `<div class="alert ${a.type}"><span class="a-ico" aria-hidden="true">${a.icon}</span><div><strong>${a.title}</strong><p>${a.text}</p></div></div>`).join('')
+    : '<div class="alert calm"><span class="a-ico" aria-hidden="true">😊</span><div><strong>Clima tranquilo</strong><p>Sin alertas: temperatura agradable y poca probabilidad de lluvia.</p></div></div>';
+
+  const dates = [...new Set(hours.map(h => h.date))];
+  const dateIdx = dates.indexOf(day.date);
+  const city = getCity(q.cityId);
+  const recs = ACTIVITIES
+    .filter(a => !a.beachOnly || city.beach)
+    .map(a => {
+      const e = evaluate(hours, a, [dateIdx]);
+      const fit = conds.find(c => (WHY[a.id] || {})[c]);
+      return { act: a, score: e.score, best: e.days[0] && e.days[0].best, fit, why: fit ? WHY[a.id][fit] : null };
+    })
+    .filter(x => x.score != null && x.score >= 45 && (x.fit || !conds.length))
+    .sort((x, y) => y.score - x.score)
+    .slice(0, 4);
+
+  const recsHtml = recs.length
+    ? `<div class="recs">${recs.map(x => `<button class="rec${x.act.id === q.actId ? ' current' : ''}" type="button" data-alt="${x.act.id}">
+        <span class="rec-ico" aria-hidden="true">${x.act.icon}</span>
+        <span class="rec-text"><b>${x.act.label}</b><small>${x.why || 'Buen momento para este plan'}</small>${x.best ? `<em>${fmtHour(x.best.start)} – ${fmtHour(x.best.end)}</em>` : ''}</span>
+        <span class="tag ${levelOf(x.score)}">${x.score}</span></button>`).join('')}</div>`
+    : '<p class="muted">Con este clima conviene esperar: no hay planes con buen puntaje para este día.</p>';
+
+  panel.innerHTML = `
+    <h2>Clima: ${fmtDate(day.date)}</h2>
+    <div class="alerts">${alertsHtml}</div>
+    <h2 class="rec-title">Planes para este clima</h2>
+    ${recsHtml}`;
 }
 
 /* Franja de calor: una barra por hora, coloreada por qué tan bueno está el clima para el plan */
@@ -367,7 +459,7 @@ function renderHeat() {
   const dayTabs = r.days.length > 1
     ? `<div class="day-tabs" role="group" aria-label="Elegir día">${r.days.map((d, i) =>
       `<button class="day-tab ${levelOf(d.score)}" type="button" data-day="${i}" aria-pressed="${i === state.dayIdx}"><i></i>${fmtDate(d.date)}</button>`).join('')}</div>`
-    : `<p class="muted" style="margin-bottom:8px;text-transform:capitalize">${fmtDate(day.date)}</p>`;
+    : `<p class="muted" style="margin-bottom:8px">${fmtDate(day.date)}</p>`;
 
   const bars = day.all.map(h => {
     const inWin = inWindow(h.hour, act);
@@ -438,7 +530,7 @@ function renderDetail() {
     </div>
     <div class="panel">
       <h2>${act.icon} ${act.label}: hora por hora</h2>
-      <p class="muted" style="text-transform:capitalize">${r.bestDay ? fmtDate(r.bestDay.date) : ''}</p>
+      <p class="muted">${r.bestDay ? fmtDate(r.bestDay.date) : ''}</p>
       ${table}
     </div></div>`;
 }
@@ -575,6 +667,7 @@ function init() {
       state.dayIdx = +day.dataset.day;
       const d = state.last.r.days[state.dayIdx];
       state.hour = d && d.best ? d.best.start : null;
+      renderClima();
       return renderHeat();
     }
     const bar = e.target.closest('[data-hour]');
