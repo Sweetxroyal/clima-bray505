@@ -342,7 +342,34 @@ function tile(icon, label, value, sub) {
     <div><small>${label}</small><strong>${value}</strong>${sub ? `<em>${sub}</em>` : ''}</div></div>`;
 }
 
-const isFav = q => store.get('sap_favoritos').some(f => f.cityId === q.cityId && f.actId === q.actId && f.period === q.period);
+/* "Hoy", "Mañana" o el día de la semana */
+function relDay(date) {
+  const today = nowBogota().date;
+  const tm = new Date(today + 'T12:00:00'); tm.setDate(tm.getDate() + 1);
+  if (date === today) return 'Hoy';
+  if (date === tm.toISOString().slice(0, 10)) return 'Mañana';
+  return fmtDate(date);
+}
+
+/* Día y hora que el usuario tiene elegidos en la franja de calor */
+const favSel = () => {
+  const d = state.last && state.last.r.days[state.dayIdx];
+  return { date: d ? d.date : null, hour: state.hour };
+};
+const sameFav = (f, q, s) => f.cityId === q.cityId && f.actId === q.actId && f.period === q.period
+  && (f.date || null) === s.date && (f.hour ?? null) === (s.hour ?? null);
+const isFav = q => store.get('sap_favoritos').some(f => sameFav(f, q, favSel()));
+const favText = q => {
+  if (isFav(q)) return '★ En favoritos';
+  const s = favSel();
+  return s.date && s.hour != null ? `☆ Guardar: ${relDay(s.date)} a las ${fmtHour(s.hour)}` : '☆ Guardar en favoritos';
+};
+function updateFavButton() {
+  const btn = $('#btnFav');
+  if (!btn || !state.last) return;
+  btn.setAttribute('aria-pressed', isFav(state.last.q));
+  btn.textContent = favText(state.last.q);
+}
 
 function skeleton() {
   return `<div class="sk" style="height:170px"></div>
@@ -357,6 +384,10 @@ function renderResults(q, hours, opts = {}) {
   state.last = { q, hours, r, ranking, auto: !!opts.auto };
   state.dayIdx = Math.max(0, r.days.findIndex(d => d === r.bestDay));
   state.hour = r.bestDay && r.bestDay.best ? r.bestDay.best.start : null;
+  if (opts.pick && opts.pick.date) {
+    const i = r.days.findIndex(d => d.date === opts.pick.date);
+    if (i >= 0) { state.dayIdx = i; if (opts.pick.hour != null) state.hour = opts.pick.hour; }
+  }
 
   let body;
   if (!r.metrics) {
@@ -387,7 +418,7 @@ function renderResults(q, hours, opts = {}) {
         </div>
         <p class="body">${body}</p>
         <div class="banner-actions">
-          <button class="btn-fav" type="button" id="btnFav" aria-pressed="${isFav(q)}">${isFav(q) ? '★ En favoritos' : '☆ Guardar en favoritos'}</button>
+          <button class="btn-fav" type="button" id="btnFav" aria-pressed="${isFav(q)}">${favText(q)}</button>
         </div>
       </div>
       ${gauge(r.score, r.level)}
@@ -489,6 +520,7 @@ function renderHeat() {
       <span><i style="box-shadow:0 0 0 2px var(--violet);background:#fff"></i>Mejor momento</span>
     </div>
     ${slots ? `<div class="slots">${slots}</div>` : '<p class="muted" style="margin-top:10px">Sin horarios disponibles este día.</p>'}`;
+  updateFavButton();
 }
 
 function heatInfo(day, act) {
@@ -563,7 +595,7 @@ function renderFavorites() {
     const city = getCity(f.cityId), act = getAct(f.actId);
     if (!city || !act) return '';
     return `<div class="panel item"><div class="info"><strong>${city.name}: ${act.icon} ${act.label}</strong>
-      <small>${PERIODS[f.period].label}</small></div>
+      <small>${f.date && f.hour != null ? relDay(f.date) + ' a las ' + fmtHour(f.hour) : PERIODS[f.period].label}</small></div>
       <div class="btns"><button class="btn-ghost" type="button" data-run-fav="${i}">Consultar</button>
       <button class="btn-ghost" type="button" data-del-fav="${i}">Quitar</button></div></div>`;
   }).join('');
@@ -613,14 +645,13 @@ function setView(name) {
 
 function toggleFav() {
   if (!state.last) return;
-  const q = state.last.q;
+  const q = state.last.q, sel = favSel();
   let favs = store.get('sap_favoritos');
-  const same = f => f.cityId === q.cityId && f.actId === q.actId && f.period === q.period;
-  favs = favs.some(same) ? favs.filter(f => !same(f)) : [...favs, q];
+  favs = favs.some(f => sameFav(f, q, sel))
+    ? favs.filter(f => !sameFav(f, q, sel))
+    : [...favs, { cityId: q.cityId, actId: q.actId, period: q.period, date: sel.date, hour: sel.hour }];
   store.set('sap_favoritos', favs);
-  const btn = $('#btnFav');
-  btn.setAttribute('aria-pressed', isFav(q));
-  btn.textContent = isFav(q) ? '★ En favoritos' : '☆ Guardar en favoritos';
+  updateFavButton();
 }
 
 /* Al abrir: busca el mejor plan para ahora en la ciudad por defecto */
@@ -691,7 +722,7 @@ function init() {
     const run = e.target.closest('[data-run-fav]');
     const del = e.target.closest('[data-del-fav]');
     const favs = store.get('sap_favoritos');
-    if (run) runQuery(favs[run.dataset.runFav]);
+    if (run) { const f = favs[run.dataset.runFav]; runQuery(f, true, f.date ? { pick: { date: f.date, hour: f.hour } } : {}); }
     if (del) { favs.splice(del.dataset.delFav, 1); store.set('sap_favoritos', favs); renderFavorites(); }
   });
 
